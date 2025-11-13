@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Переводчик Модов Minecraft</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="window-header">
+            <div class="window-controls">
+                <div class="window-control control-red"></div>
+                <div class="window-control control-yellow"></div>
+                <div class="window-control control-green"></div>
+            </div>
+            <div class="window-title">Переводчик Модов Minecraft</div>
+        </div>
+        <div class="content">
+            <div id="drop-zone" class="drop-zone">
+                <p>Перетащите .jar файл сюда или нажмите, чтобы выбрать</p>
+                <input type="file" id="file-input" accept=".jar" style="display: none;">
+            </div>
+            <div id="process-area" class="process-area">
+                <div class="section">
+                    <h2>Файл локализации с промптом:</h2>
+                    <textarea id="prompt-output" readonly></textarea>
+                    <div class="button-group">
+                        <button id="copy-prompt-btn">Скопировать</button>
+                        <span id="ru-status-message" class="status-message"></span>
+                    </div>
+                </div>
+                <div class="section">
+                    <h2>Вставьте переведенный JSON:</h2>
+                    <textarea id="translated-input" placeholder='Вставьте ваш переведенный JSON сюда...'></textarea>
+                    <button id="generate-btn">Сгенерировать ZIP перевода</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,268 @@
+/* Основные стили */
+:root {
+    --primary-color: #4CAF50;
+    --secondary-color: #2E7D32;
+    --background-color: #121212;
+    --surface-color: #1e1e1e;
+    --text-color: #39ff14;
+    --border-color: #333;
+    --dragover-color: #2d2d2d;
+    --btn-success-color: #4CAF50;
+    --btn-error-color: #f44336;
+    --feedback-duration: 500ms;
+    --transition-duration: 0.3s; /* Добавим переменную для времени перехода */
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Courier New', Courier, monospace;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    padding: 10px; /* Уменьшил отступы по краям */
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-image: 
+        linear-gradient(var(--border-color) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border-color) 1px, transparent 1px);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 0;
+}
+
+.container {
+    max-width: 800px;
+    width: 100%;
+    padding: 20px; /* Уменьшил внутренний отступ контейнера */
+    background-color: var(--surface-color);
+    border-radius: 15px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); /* Уменьшил тень для более тонкого эффекта глубины */
+    position: relative;
+}
+
+/* Макет окна macOS */
+.window-header {
+    display: flex;
+    align-items: center;
+    padding: 8px 15px; /* Уменьшил отступы в заголовке */
+    background-color: var(--surface-color);
+    border-top-left-radius: 15px;
+    border-top-right-radius: 15px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.window-controls {
+    display: flex;
+    gap: 5px;
+    margin-right: 10px;
+}
+
+.window-control {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.control-red {
+    background-color: #ff5f56;
+}
+
+.control-yellow {
+    background-color: #ffbd2e;
+}
+
+.control-green {
+    background-color: #27c93f;
+}
+
+.window-title {
+    font-size: 1.3rem; /* Уменьшил размер шрифта заголовка */
+    font-weight: bold;
+    color: var(--text-color);
+    letter-spacing: 1px;
+}
+
+/* Основной контент */
+.content {
+    padding: 15px 0; /* Уменьшил отступы контента */
+}
+
+.drop-zone {
+    border: 2px dashed var(--border-color);
+    border-radius: 8px; /* Уменьшил радиус скругления */
+    padding: 20px; /* Уменьшил внутренний отступ */
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background-color: rgba(30, 30, 30, 0.7);
+    margin: 15px 0; /* Уменьшил внешние отступы */
+}
+
+.drop-zone.dragover {
+    border-color: var(--primary-color);
+    background-color: var(--dragover-color);
+}
+
+.drop-zone p {
+    font-size: 1rem; /* Уменьшил размер шрифта */
+    margin: 0;
+    color: var(--text-color);
+    letter-spacing: 0.5px;
+}
+
+.process-area {
+    margin-top: 15px; /* Уменьшил отступ сверху */
+    opacity: 0; /* Сделаем прозрачным по умолчанию */
+    transform: scale(0.95); /* Начальный размер чуть меньше */
+    transition: opacity var(--transition-duration) ease, transform var(--transition-duration) ease; /* Плавный переход для opacity и transform */
+    max-height: 0; /* Схлопываем блок по умолчанию */
+    overflow: hidden; /* Прячем содержимое, пока он схлопнут */
+    transition: opacity var(--transition-duration) ease, 
+                transform var(--transition-duration) ease,
+                max-height var(--transition-duration) ease; /* Добавляем max-height в анимацию */
+}
+
+.process-area.show {
+    opacity: 1; /* Видимый */
+    transform: scale(1); /* Нормальный размер */
+    max-height: 500px
+}
+
+/* Убираем класс hidden, если он есть */
+.hidden {
+    display: none;
+}
+
+.section {
+    margin: 15px 0; /* Уменьшил отступы между секциями */
+}
+
+.section h2 {
+    margin-bottom: 8px; /* Уменьшил отступ под заголовком */
+    color: var(--text-color);
+    font-size: 1.1rem; /* Уменьшил размер шрифта */
+    letter-spacing: 0.5px;
+}
+
+textarea {
+    width: 100%;
+    height: 150px; /* Уменьшил высоту текстового поля */
+    padding: 10px; /* Уменьшил внутренние отступы */
+    border: 1px solid var(--border-color);
+    border-radius: 6px; /* Уменьшил радиус скругления */
+    background-color: var(--surface-color);
+    color: var(--text-color);
+    font-family: 'Courier New', Courier, monospace;
+    resize: vertical;
+    margin-bottom: 8px; /* Уменьшил отступ снизу */
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3); /* Уменьшил внутреннюю тень */
+}
+
+textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 1px rgba(76, 175, 80, 0.2); /* Уменьшил фокусную тень */
+}
+
+.button-group {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap; /* Для адаптивности */
+    margin-bottom: 8px;
+}
+
+button {
+    background-color: var(--secondary-color);
+    color: white;
+    border: none;
+    /* ИЗМЕНЕНО: Увеличенный горизонтальный padding */
+    padding: 8px 18px; 
+    border-radius: 6px; 
+    cursor: pointer;
+    font-family: 'Courier New', Courier, monospace;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    letter-spacing: 0.5px; 
+    /* ИЗМЕНЕНО: Добавлен margin для запаса */
+    margin: 0 8px 8px 0; 
+    min-width: 120px; 
+}
+
+button:hover {
+    background-color: var(--primary-color);
+    transform: translateY(-1px);
+}
+
+.status-message {
+    color: var(--btn-error-color); /* Используем красный цвет для предупреждения */
+    font-size: 0.9rem;
+    font-weight: bold;
+    margin-left: 5px;
+    margin-bottom: 8px; /* Согласуем с отступом кнопки */
+}
+
+/* Визуальная обратная связь для кнопок */
+button.btn-success:hover,
+button.btn-error:hover {
+    transform: none; 
+}
+
+button.btn-error:hover {
+    background-color: var(--btn-error-color); 
+}
+
+button.btn-success:hover {
+    background-color: var(--btn-success-color); 
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-3px); }
+    75% { transform: translateX(3px); }
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .container {
+        padding: 15px;
+        margin: 5px;
+    }
+    
+    .window-header {
+        padding: 6px 10px;
+    }
+    
+    .window-title {
+        font-size: 1.1rem;
+    }
+    
+    .drop-zone {
+        padding: 15px;
+    }
+    
+    textarea {
+        height: 120px;
+    }
+    
+    .button-group {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .status-message {
+        margin-left: 0;
+        margin-top: -5px; /* Чтобы не было слишком большого разрыва */
+        margin-bottom: 8px;
+    }
+}
