@@ -130,7 +130,7 @@ body {
 .process-area.show {
     opacity: 1; /* Видимый */
     transform: scale(1); /* Нормальный размер */
-    max-height: 500px
+    max-height: 1000px; /* Увеличим максимальную высоту на всякий случай */
 }
 
 /* Убираем класс hidden, если он есть */
@@ -198,6 +198,13 @@ button:hover {
     transform: translateY(-1px);
 }
 
+button:disabled {
+    background-color: var(--border-color);
+    color: #777;
+    cursor: not-allowed;
+    transform: none;
+}
+
 .status-message {
     color: var(--btn-error-color); /* Используем красный цвет для предупреждения */
     font-size: 0.9rem;
@@ -232,6 +239,31 @@ button.btn-success:hover {
     75% { transform: translateX(3px); }
 }
 
+/* --- НОВЫЕ СТИЛИ ДЛЯ УПРАВЛЕНИЯ ЧАСТЯМИ --- */
+.chunk-controls {
+    display: flex;
+    align-items: center;
+    margin: 0 10px 8px 0; /* Отступы как у кнопок */
+}
+
+.chunk-controls.hidden {
+    display: none;
+}
+
+.chunk-controls span {
+    margin: 0 5px;
+    font-size: 0.9rem;
+    font-weight: bold;
+}
+
+/* Стилизуем кнопки-стрелки, делая их компактнее */
+.chunk-controls button {
+    padding: 8px 12px; /* Уменьшаем горизонтальный padding */
+    min-width: auto; /* Убираем мин. ширину */
+    margin: 0 3px; /* Убираем нижний margin, добавляем боковые */
+}
+
+
 /* Адаптивность */
 @media (max-width: 768px) {
     .container {
@@ -263,6 +295,13 @@ button.btn-success:hover {
     .status-message {
         margin-left: 0;
         margin-top: -5px; /* Чтобы не было слишком большого разрыва */
+        margin-bottom: 8px;
+    }
+
+    /* Адаптация для кнопок "частей" */
+    .chunk-controls {
+        margin-left: 0;
+        margin-top: -5px;
         margin-bottom: 8px;
     }
 }
