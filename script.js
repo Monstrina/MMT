@@ -17,16 +17,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Глобальные переменные состояния ---
     let modIdentifier = null; // Будет хранить ID мода (из jar) или имя файла (из json)
-    let processingMode = 'jar'; // 'jar' или 'json'
+    let processingMode = 'jar'; // 'jar', 'json' или 'dual-json'
     let originalRuJsonString = null; // Для "доперевода"
     
     // --- Переменные для "частей" ---
     let promptChunks = [];
     let currentChunkIndex = 0;
-    
-    // --- *** ИЗМЕНЕНИЕ ЗДЕСЬ *** ---
-    const MAX_KEYS_PER_CHUNK = 250; // Лимит ключей на одну часть (было 350)
-    // --- *** КОНЕЦ ИЗМЕНЕНИЯ *** ---
+    const MAX_KEYS_PER_CHUNK = 250;
 
 
     // --- Функция для визуальной обратной связи на кнопке ---
@@ -39,15 +36,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         setTimeout(() => {
             buttonElement.classList.remove(feedbackClass);
-        }, 500); // Используем переменную из CSS
+        }, 500);
     }
 
     // --- File Selection and Processing ---
     dropZone.addEventListener('click', () => fileInput.click());
     
+    // ИЗМЕНЕНИЕ: Обработчик теперь вызывает handleInputFiles, передавая все выбранные файлы
     fileInput.addEventListener('change', (e) => {
         if (e.target.files.length > 0) {
-            handleFile(e.target.files[0]);
+            handleInputFiles(e.target.files);
         }
     });
 
@@ -80,12 +78,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const dt = e.dataTransfer;
         const files = dt.files;
         if (files.length > 0) {
-            handleFile(files[0]);
+            handleInputFiles(files); // ИЗМЕНЕНИЕ: Вызываем handleInputFiles
         }
     });
 
-    async function handleFile(file) {
-        // --- Сброс состояния при загрузке нового файла ---
+    // --- Главный маршрутизатор обработки файлов ---
+    function handleInputFiles(files) {
+        // Сброс интерфейса
+        resetUI();
+
+        if (files.length === 1) {
+            handleSingleFile(files[0]);
+        } else if (files.length === 2) {
+            handleDualJsonFiles(files); // НОВАЯ ФУНКЦИЯ
+        } else {
+            provideVisualFeedback(dropZone, false, 'Ошибка: Пожалуйста, выберите 1 файл (.jar/.json) или 2 файла (.json).');
+        }
+    }
+
+    function resetUI() {
         ruStatusMessage.textContent = '';
         translatedInput.value = '';
         promptOutput.value = '';
@@ -94,10 +105,87 @@ document.addEventListener('DOMContentLoaded', () => {
         promptChunks = [];
         currentChunkIndex = 0;
         chunkControls.classList.add('hidden');
-        processArea.classList.remove('show'); // Сначала скрываем
+        processArea.classList.remove('show');
+    }
 
-        // Проверка и на .jar, и на .json
+    // --- НОВАЯ ФУНКЦИЯ: Обработка 2 файлов (Dual JSON) ---
+    async function handleDualJsonFiles(files) {
+        const file1 = files[0];
+        const file2 = files[1];
+
+        // Проверка расширений
+        if (!file1.name.toLowerCase().endsWith('.json') || !file2.name.toLowerCase().endsWith('.json')) {
+            provideVisualFeedback(dropZone, false, 'Ошибка: Для режима сравнения оба файла должны быть .json');
+            return;
+        }
+
+        processingMode = 'dual-json';
+        modIdentifier = 'custom_mod'; 
+
+        try {
+            const text1 = await file1.text();
+            const text2 = await file2.text();
+
+            let enContent, ruContent;
+
+            // Определяем где какой язык по имени файла
+            const name1 = file1.name.toLowerCase();
+            const name2 = file2.name.toLowerCase();
+
+            if (name1.includes('en_us') && name2.includes('ru_ru')) {
+                enContent = text1;
+                ruContent = text2;
+            } else if (name2.includes('en_us') && name1.includes('ru_ru')) {
+                enContent = text2;
+                ruContent = text1;
+            } else {
+                throw new Error('Не удалось определить языки. Убедитесь, что файлы называются "en_us.json" и "ru_ru.json" (или содержат эти коды).');
+            }
+
+            // Очистка и парсинг
+            const cleanEn = enContent.replace(/\u00A0/g, ' ');
+            const cleanRu = ruContent.replace(/\u00A0/g, ' ');
+            
+            const enJson = JSON.parse(cleanEn);
+            const ruJson = JSON.parse(cleanRu);
+
+            originalRuJsonString = cleanRu; // Сохраняем оригинал для слияния в конце
+
+            // Логика сравнения ключей (Delta)
+            const missingKeysData = {};
+            let missingCount = 0;
+
+            for (const key in enJson) {
+                if (enJson.hasOwnProperty(key) && !ruJson.hasOwnProperty(key)) {
+                    missingKeysData[key] = enJson[key];
+                    missingCount++;
+                }
+            }
+
+            let promptPreamble;
+            let jsonForPrompt;
+
+            if (missingCount > 0) {
+                ruStatusMessage.textContent = `Режим сравнения файлов: Обнаружено ${missingCount} недостающих ключей.`;
+                jsonForPrompt = missingKeysData;
+                promptPreamble = "Ваша задача — перевести *значения* **следующего JSON-объекта (только недостающие ключи)** для дополнения существующего перевода.";
+            } else {
+                ruStatusMessage.textContent = 'Режим сравнения файлов: Перевод актуален, все ключи из en_us есть в ru_ru.';
+                jsonForPrompt = {};
+                promptPreamble = "Перевод не требуется, все ключи совпадают.";
+            }
+
+            generatePromptAndChunks(jsonForPrompt, promptPreamble);
+
+        } catch (error) {
+            handleError(error);
+        }
+    }
+
+    // --- Обработка 1 файла (JAR или JSON) ---
+    async function handleSingleFile(file) {
         const fileName = file.name.toLowerCase();
+        
         if (!fileName.endsWith('.jar') && !fileName.endsWith('.json')) {
             provideVisualFeedback(dropZone, false, 'Ошибка: Пожалуйста, выберите .jar или .json файл.');
             return;
@@ -108,7 +196,6 @@ document.addEventListener('DOMContentLoaded', () => {
             let promptPreamble;
             let jsonForPrompt = {};
 
-            // Разная логика для JAR и JSON
             if (fileName.endsWith('.jar')) {
                 // --- ЛОГИКА ДЛЯ .JAR ---
                 processingMode = 'jar';
@@ -136,7 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 modIdentifier = modName;
                 const enUsJsonContent = await zip.file(enUsJsonPath).async('string');
                 parsedEnJson = JSON.parse(enUsJsonContent);
-                jsonForPrompt = parsedEnJson; // По умолчанию
+                jsonForPrompt = parsedEnJson; 
                 promptPreamble = "Ваша задача — перевести *значения* следующего JSON-объекта с английского на русский язык.";
 
                 if (ruRuJsonPath) {
@@ -169,50 +256,50 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             
             } else {
-                // --- НОВАЯ ЛОГИКА ДЛЯ .JSON ---
+                // --- ЛОГИКА ДЛЯ ОДИНОЧНОГО .JSON ---
                 processingMode = 'json';
-                modIdentifier = fileName.replace(/\.json$/i, ''); // e.g., 'en_us'
+                modIdentifier = fileName.replace(/\.json$/i, '');
                 
                 let enUsJsonContent = await file.text();
-
-                // Очищаем строку от "плохих" пробелов (U+00A0) перед парсингом,
-                // заменяя их на обычные пробелы.
                 const cleanedJsonContent = enUsJsonContent.replace(/\u00A0/g, ' ');
-                
-                // Парсим ОЧИЩЕННУЮ строку
                 parsedEnJson = JSON.parse(cleanedJsonContent); 
                 
                 jsonForPrompt = parsedEnJson;
                 promptPreamble = "Ваша задача — перевести *значения* следующего JSON-объекта с английского на русский язык.";
-                ruStatusMessage.textContent = 'Загружен .json. Требуется полный перевод.';
-                originalRuJsonString = null; // "Доперевод" невозможен
+                ruStatusMessage.textContent = 'Загружен одиночный .json. Требуется полный перевод.';
+                originalRuJsonString = null; 
             }
 
-            // --- ОБЩАЯ ЛОГИКА ГЕНЕРАЦИИ ПРОМПТА И "ЧАСТЕЙ" ---
+            generatePromptAndChunks(jsonForPrompt, promptPreamble);
+
+        } catch (error) {
+            handleError(error);
+        }
+    }
+
+    // --- Вспомогательная функция: Генерация промпта и чанков ---
+    function generatePromptAndChunks(jsonForPrompt, promptPreamble) {
+        const allKeys = Object.keys(jsonForPrompt);
+        promptChunks = []; 
+        
+        if (allKeys.length === 0) {
+            promptOutput.value = promptPreamble;
+            promptChunks = [promptPreamble];
+            currentChunkIndex = 0;
+            chunkControls.classList.add('hidden');
+        
+        } else if (allKeys.length > MAX_KEYS_PER_CHUNK) {
+            const totalChunks = Math.ceil(allKeys.length / MAX_KEYS_PER_CHUNK);
             
-            const allKeys = Object.keys(jsonForPrompt);
-            promptChunks = []; // Сбрасываем массив частей
-            
-            if (allKeys.length === 0) {
-                // Случай, когда нечего переводить (например, jar актуален)
-                promptOutput.value = promptPreamble; // "Перевод не требуется..."
-                promptChunks = [promptPreamble];
-                currentChunkIndex = 0;
-                chunkControls.classList.add('hidden');
-            
-            } else if (allKeys.length > MAX_KEYS_PER_CHUNK) {
-                // --- ЛОГИКА РАЗДЕЛЕНИЯ НА ЧАСТИ ---
-                const totalChunks = Math.ceil(allKeys.length / MAX_KEYS_PER_CHUNK);
+            for (let i = 0; i < totalChunks; i++) {
+                const chunkKeys = allKeys.slice(i * MAX_KEYS_PER_CHUNK, (i + 1) * MAX_KEYS_PER_CHUNK);
+                const chunkJson = {};
+                chunkKeys.forEach(key => {
+                    chunkJson[key] = jsonForPrompt[key];
+                });
                 
-                for (let i = 0; i < totalChunks; i++) {
-                    const chunkKeys = allKeys.slice(i * MAX_KEYS_PER_CHUNK, (i + 1) * MAX_KEYS_PER_CHUNK);
-                    const chunkJson = {};
-                    chunkKeys.forEach(key => {
-                        chunkJson[key] = jsonForPrompt[key];
-                    });
-                    
-                    const prettifiedChunkJson = JSON.stringify(chunkJson, null, 2);
-                    const chunkPrompt = `${promptPreamble}
+                const prettifiedChunkJson = JSON.stringify(chunkJson, null, 2);
+                const chunkPrompt = `${promptPreamble}
 - **Это ЧАСТЬ ${i + 1} из ${totalChunks}**.
 - **НЕ** переводите ключи JSON.
 - **НЕ** изменяйте структуру JSON-объекта.
@@ -221,17 +308,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
 Исходный английский JSON для перевода (Часть ${i + 1}/${totalChunks}):
 ${prettifiedChunkJson}`;
-                    promptChunks.push(chunkPrompt);
-                }
-                
-                currentChunkIndex = 0;
-                updateChunkView(); // Показываем первую часть
-                chunkControls.classList.remove('hidden'); // Показываем кнопки
-                
-            } else {
-                // --- Стандартная логика (одна часть) ---
-                const prettifiedJson = JSON.stringify(jsonForPrompt, null, 2);
-                const prompt = `${promptPreamble}
+                promptChunks.push(chunkPrompt);
+            }
+            
+            currentChunkIndex = 0;
+            updateChunkView();
+            chunkControls.classList.remove('hidden');
+            
+        } else {
+            const prettifiedJson = JSON.stringify(jsonForPrompt, null, 2);
+            const prompt = `${promptPreamble}
 - **НЕ** переводите ключи JSON.
 - **НЕ** изменяйте структуру JSON-объекта.
 - **НЕ** изменяйте специальные коды форматирования, такие как "§d", "§5" и т.п. Это коды цвета и форматирования Minecraft, и они должны быть сохранены в точности.
@@ -239,33 +325,28 @@ ${prettifiedChunkJson}`;
 
 Исходный английский JSON для перевода:
 ${prettifiedJson}`;
-                
-                promptOutput.value = prompt;
-                promptChunks = [prompt];
-                currentChunkIndex = 0;
-                chunkControls.classList.add('hidden'); // Кнопки не нужны
-            }
             
-            processArea.classList.add('show'); // Показываем интерфейс
-
-        } catch (error) {
-            console.error('Error processing file:', error);
-            
-            let errorMessage = `Ошибка: ${error.message}`;
-            if (error instanceof SyntaxError) {
-                errorMessage = 'Ошибка: Загруженный .json файл содержит ошибку. Он не является валидным JSON. (Проверьте на www.jsonlint.com)';
-            }
-            
-            ruStatusMessage.textContent = errorMessage;
-            promptOutput.value = '';
-            translatedInput.value = '';
+            promptOutput.value = prompt;
+            promptChunks = [prompt];
+            currentChunkIndex = 0;
             chunkControls.classList.add('hidden');
-            processArea.classList.add('show'); 
-            provideVisualFeedback(dropZone, false, 'Ошибка при обработке файла'); 
         }
+        
+        processArea.classList.add('show');
+    }
+
+    function handleError(error) {
+        console.error('Error processing file:', error);
+        let errorMessage = `Ошибка: ${error.message}`;
+        if (error instanceof SyntaxError) {
+            errorMessage = 'Ошибка: Загруженный файл содержит ошибку JSON. (Проверьте на www.jsonlint.com)';
+        }
+        ruStatusMessage.textContent = errorMessage;
+        processArea.classList.add('show'); 
+        provideVisualFeedback(dropZone, false, 'Ошибка при обработке файла'); 
     }
     
-    // --- НОВЫЕ Функции для управления "частями" ---
+    // --- Функции для управления "частями" ---
     function updateChunkView() {
         if (promptChunks.length === 0) return;
         promptOutput.value = promptChunks[currentChunkIndex];
@@ -317,10 +398,9 @@ ${prettifiedJson}`;
 
             // --- Логика парсинга с учетом "частей" ---
             if (promptChunks.length > 1) {
-                // --- ЛОГИКА СШИВАНИЯ (Chunking) ---
                 const jsonObjects = [];
-                // Этот regex находит JSON-объекты верхнего уровня (включая вложенные)
-                const regex = /({(?:[^{}]|{(?:[^{}]|{[^{}]*})*})*})/g;
+                // Регулярное выражение для поиска JSON объектов, включая вложенные (простая рекурсия не поддерживается, но это пытается найти внешние фигурные скобки)
+                const regex = /({(?:[^{}]|{(?:[^{}]|{[^{}]*})*})*})/g; 
                 let match;
                 
                 while ((match = regex.exec(translatedJsonString)) !== null) {
@@ -335,11 +415,10 @@ ${prettifiedJson}`;
                     throw new SyntaxError("Не найдено валидных JSON-объектов. Убедитесь, что вы вставили все части.");
                 }
                 
-                // Объединяем все объекты в один, { ...obj1, ...obj2 }
+                // Объединяем все переведенные части в один объект
                 newTranslations = Object.assign({}, ...jsonObjects);
 
             } else {
-                // --- Стандартная логика (один JSON) ---
                 newTranslations = JSON.parse(translatedJsonString);
             }
 
@@ -350,11 +429,14 @@ ${prettifiedJson}`;
 
             let finalJsonData;
 
-            // --- ЛОГИКА ОБЪЕДИНЕНИЯ (для .jar с допереводом) ---
+            // --- ЛОГИКА ОБЪЕДИНЕНИЯ ---
+            // Если был загружен ru_ru.json (в режиме JAR или Dual JSON), объединяем старые ключи с новыми переводами
             if (originalRuJsonString) {
                 const originalRuData = JSON.parse(originalRuJsonString);
+                // Object.assign: сохраняет оригинальные ключи, а новые (переведенные) перезаписывают старые, если они были в исходном запросе на перевод.
                 finalJsonData = Object.assign(originalRuData, newTranslations);
             } else {
+                // Если originalRuJsonString == null (полный перевод), используем только новые переводы
                 finalJsonData = newTranslations;
             }
 
@@ -364,10 +446,12 @@ ${prettifiedJson}`;
             
             // --- Динамический путь в ZIP ---
             let internalPath;
-            if (processingMode === 'json') {
-                internalPath = `${langCode}.json`; // Сохраняем в корень ZIP
+            if (processingMode === 'json' || processingMode === 'dual-json') {
+                // Для одиночного и двойного JSON сохраняем в корень ZIP (проще для ручной установки)
+                internalPath = `${langCode}.json`; 
             } else {
-                internalPath = `assets/${modIdentifier}/lang/${langCode}.json`; // Старый путь для .jar
+                // Путь для .jar
+                internalPath = `assets/${modIdentifier}/lang/${langCode}.json`; 
             }
             
             zip.file(internalPath, finalJsonString);
