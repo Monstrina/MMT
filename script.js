@@ -1,5 +1,6 @@
+/* script.js */
 document.addEventListener('DOMContentLoaded', () => {
-    // --- Элементы ---
+    // Элементы интерфейса
     const fileInput = document.getElementById('file-input');
     const dropZone = document.getElementById('drop-zone');
     const processArea = document.getElementById('process-area');
@@ -7,475 +8,332 @@ document.addEventListener('DOMContentLoaded', () => {
     const copyPromptBtn = document.getElementById('copy-prompt-btn');
     const translatedInput = document.getElementById('translated-input');
     const generateBtn = document.getElementById('generate-btn');
-    const ruStatusMessage = document.getElementById('ru-status-message');
+    const statusMessage = document.getElementById('status-message');
+    const fileListEl = document.getElementById('file-list');
     
-    // --- Элементы для "частей" (Chunking) ---
+    // Элементы управления частями (если промпт очень большой)
     const chunkControls = document.getElementById('chunk-controls');
     const prevChunkBtn = document.getElementById('prev-chunk-btn');
     const nextChunkBtn = document.getElementById('next-chunk-btn');
     const chunkStatus = document.getElementById('chunk-status');
 
-    // --- Глобальные переменные состояния ---
-    let modIdentifier = null; // Будет хранить ID мода (из jar) или имя файла (из json)
-    let processingMode = 'jar'; // 'jar', 'json' или 'dual-json'
-    let originalRuJsonString = null; // Для "доперевода"
-    
-    // --- Переменные для "частей" ---
+    // Хранилище данных
+    let modsData = {}; // { "modid": { en: {}, ru: {}, originalRu: {} } }
     let promptChunks = [];
     let currentChunkIndex = 0;
-    const MAX_KEYS_PER_CHUNK = 250;
-
-
-    // --- Функция для визуальной обратной связи на кнопке ---
-    function provideVisualFeedback(buttonElement, isSuccess = true, message = null) {
-        buttonElement.classList.remove('btn-success', 'btn-error');
-        const feedbackClass = isSuccess ? 'btn-success' : 'btn-error';
-        buttonElement.classList.add(feedbackClass);
-        if (message) {
-            console.log(message);
-        }
-        setTimeout(() => {
-            buttonElement.classList.remove(feedbackClass);
-        }, 500);
-    }
-
-    // --- File Selection and Processing ---
-    dropZone.addEventListener('click', () => fileInput.click());
     
-    // ИЗМЕНЕНИЕ: Обработчик теперь вызывает handleInputFiles, передавая все выбранные файлы
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-            handleInputFiles(e.target.files);
-        }
-    });
+    // Лимит символов для одного сообщения нейросети (~15k символов)
+    const CHARS_PER_CHUNK = 15000; 
 
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        dropZone.addEventListener(eventName, preventDefaults, false);
-    });
+    // --- Функции UI ---
 
-    function preventDefaults(e) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-
-    ['dragenter', 'dragover'].forEach(eventName => {
-        dropZone.addEventListener(eventName, highlight, false);
-    });
-
-    ['dragleave', 'drop'].forEach(eventName => {
-        dropZone.addEventListener(eventName, unhighlight, false);
-    });
-
-    function highlight(e) {
-        dropZone.classList.add('dragover');
-    }
-
-    function unhighlight(e) {
-        dropZone.classList.remove('dragover');
-    }
-
-    dropZone.addEventListener('drop', (e) => {
-        const dt = e.dataTransfer;
-        const files = dt.files;
-        if (files.length > 0) {
-            handleInputFiles(files); // ИЗМЕНЕНИЕ: Вызываем handleInputFiles
-        }
-    });
-
-    // --- Главный маршрутизатор обработки файлов ---
-    function handleInputFiles(files) {
-        // Сброс интерфейса
-        resetUI();
-
-        if (files.length === 1) {
-            handleSingleFile(files[0]);
-        } else if (files.length === 2) {
-            handleDualJsonFiles(files); // НОВАЯ ФУНКЦИЯ
-        } else {
-            provideVisualFeedback(dropZone, false, 'Ошибка: Пожалуйста, выберите 1 файл (.jar/.json) или 2 файла (.json).');
-        }
+    function showFeedback(btn, success, msg) {
+        const originalText = btn.innerText;
+        btn.classList.add(success ? 'btn-success' : 'btn-error');
+        btn.innerText = msg || (success ? 'Готово!' : 'Ошибка');
+        setTimeout(() => {
+            btn.classList.remove('btn-success', 'btn-error');
+            btn.innerText = originalText;
+        }, 1500);
     }
 
     function resetUI() {
-        ruStatusMessage.textContent = '';
+        modsData = {};
+        promptChunks = [];
+        fileListEl.innerHTML = '';
+        fileListEl.classList.add('hidden');
+        processArea.classList.remove('show');
+        statusMessage.innerText = '';
         translatedInput.value = '';
         promptOutput.value = '';
-        originalRuJsonString = null;
-        modIdentifier = null;
-        promptChunks = [];
-        currentChunkIndex = 0;
-        chunkControls.classList.add('hidden');
-        processArea.classList.remove('show');
     }
 
-    // --- НОВАЯ ФУНКЦИЯ: Обработка 2 файлов (Dual JSON) ---
-    async function handleDualJsonFiles(files) {
-        const file1 = files[0];
-        const file2 = files[1];
+    // --- Обработка Drag & Drop ---
 
-        // Проверка расширений
-        if (!file1.name.toLowerCase().endsWith('.json') || !file2.name.toLowerCase().endsWith('.json')) {
-            provideVisualFeedback(dropZone, false, 'Ошибка: Для режима сравнения оба файла должны быть .json');
-            return;
-        }
+    dropZone.addEventListener('click', () => fileInput.click());
+    
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length) handleFiles(e.target.files);
+    });
 
-        processingMode = 'dual-json';
-        modIdentifier = 'custom_mod'; 
+    ['dragenter', 'dragover'].forEach(evt => {
+        dropZone.addEventListener(evt, (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+    });
 
-        try {
-            const text1 = await file1.text();
-            const text2 = await file2.text();
+    ['dragleave', 'drop'].forEach(evt => {
+        dropZone.addEventListener(evt, (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+        });
+    });
 
-            let enContent, ruContent;
+    dropZone.addEventListener('drop', (e) => {
+        if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
+    });
 
-            // Определяем где какой язык по имени файла
-            const name1 = file1.name.toLowerCase();
-            const name2 = file2.name.toLowerCase();
+    // --- Логика обработки файлов ---
 
-            if (name1.includes('en_us') && name2.includes('ru_ru')) {
-                enContent = text1;
-                ruContent = text2;
-            } else if (name2.includes('en_us') && name1.includes('ru_ru')) {
-                enContent = text2;
-                ruContent = text1;
-            } else {
-                throw new Error('Не удалось определить языки. Убедитесь, что файлы называются "en_us.json" и "ru_ru.json" (или содержат эти коды).');
-            }
-
-            // Очистка и парсинг
-            const cleanEn = enContent.replace(/\u00A0/g, ' ');
-            const cleanRu = ruContent.replace(/\u00A0/g, ' ');
-            
-            const enJson = JSON.parse(cleanEn);
-            const ruJson = JSON.parse(cleanRu);
-
-            originalRuJsonString = cleanRu; // Сохраняем оригинал для слияния в конце
-
-            // Логика сравнения ключей (Delta)
-            const missingKeysData = {};
-            let missingCount = 0;
-
-            for (const key in enJson) {
-                if (enJson.hasOwnProperty(key) && !ruJson.hasOwnProperty(key)) {
-                    missingKeysData[key] = enJson[key];
-                    missingCount++;
-                }
-            }
-
-            let promptPreamble;
-            let jsonForPrompt;
-
-            if (missingCount > 0) {
-                ruStatusMessage.textContent = `Режим сравнения файлов: Обнаружено ${missingCount} недостающих ключей.`;
-                jsonForPrompt = missingKeysData;
-                promptPreamble = "Ваша задача — перевести *значения* **следующего JSON-объекта (только недостающие ключи)** для дополнения существующего перевода.";
-            } else {
-                ruStatusMessage.textContent = 'Режим сравнения файлов: Перевод актуален, все ключи из en_us есть в ru_ru.';
-                jsonForPrompt = {};
-                promptPreamble = "Перевод не требуется, все ключи совпадают.";
-            }
-
-            generatePromptAndChunks(jsonForPrompt, promptPreamble);
-
-        } catch (error) {
-            handleError(error);
-        }
-    }
-
-    // --- Обработка 1 файла (JAR или JSON) ---
-    async function handleSingleFile(file) {
-        const fileName = file.name.toLowerCase();
+    async function handleFiles(files) {
+        resetUI();
+        fileListEl.classList.remove('hidden');
         
-        if (!fileName.endsWith('.jar') && !fileName.endsWith('.json')) {
-            provideVisualFeedback(dropZone, false, 'Ошибка: Пожалуйста, выберите .jar или .json файл.');
-            return;
-        }
+        const missingTranslationsGlobal = {}; // Соберем все, что нужно перевести
+        let validFilesCount = 0;
 
-        try {
-            let parsedEnJson;
-            let promptPreamble;
-            let jsonForPrompt = {};
-
-            if (fileName.endsWith('.jar')) {
-                // --- ЛОГИКА ДЛЯ .JAR ---
-                processingMode = 'jar';
-                const arrayBuffer = await file.arrayBuffer();
-                const zip = new JSZip();
-                await zip.loadAsync(arrayBuffer);
-
-                let enUsJsonPath = null;
-                let ruRuJsonPath = null;
-                let modName = null;
-
-                for (const [path, zipEntry] of Object.entries(zip.files)) {
-                    if (path.startsWith('assets/') && path.split('/').length >= 4 && path.split('/')[2] === 'lang') {
-                        const pathParts = path.split('/');
-                        modName = pathParts[1];
-                        if (path.endsWith('lang/en_us.json')) enUsJsonPath = path;
-                        else if (path.endsWith('lang/ru_ru.json')) ruRuJsonPath = path;
-                    }
+        for (const file of files) {
+            try {
+                let result = null;
+                
+                if (file.name.endsWith('.jar')) {
+                    result = await processJar(file);
+                } else if (file.name.endsWith('.json')) {
+                    // Поддержка простого JSON (если кинули 1 файл)
+                    const text = await file.text();
+                    result = {
+                        modId: file.name.replace('.json', ''),
+                        enJson: JSON.parse(text),
+                        ruJson: null,
+                        missing: JSON.parse(text) // Считаем, что перевести надо все
+                    };
                 }
 
-                if (!enUsJsonPath) {
-                    throw new Error('Не удалось найти en_us.json в JAR-файле.');
-                }
-
-                modIdentifier = modName;
-                const enUsJsonContent = await zip.file(enUsJsonPath).async('string');
-                parsedEnJson = JSON.parse(enUsJsonContent);
-                jsonForPrompt = parsedEnJson; 
-                promptPreamble = "Ваша задача — перевести *значения* следующего JSON-объекта с английского на русский язык.";
-
-                if (ruRuJsonPath) {
-                    ruStatusMessage.textContent = 'Присутствует изначальный перевод мода.';
-                    originalRuJsonString = await zip.file(ruRuJsonPath).async('string');
-                    const parsedRuJson = JSON.parse(originalRuJsonString);
+                if (result) {
+                    const { modId, enJson, ruJson, missing } = result;
                     
-                    const missingKeysData = {};
-                    let missingCount = 0;
-                    
-                    for (const key in parsedEnJson) {
-                        if (parsedEnJson.hasOwnProperty(key) && !parsedRuJson.hasOwnProperty(key)) {
-                            missingKeysData[key] = parsedEnJson[key];
-                            missingCount++;
-                        }
-                    }
+                    modsData[modId] = {
+                        en: enJson,
+                        ru: ruJson,
+                        originalRu: ruJson ? JSON.parse(JSON.stringify(ruJson)) : {} // Копия оригинала
+                    };
+
+                    const missingCount = Object.keys(missing).length;
                     
                     if (missingCount > 0) {
-                        ruStatusMessage.textContent += ` (Обнаружено ${missingCount} недостающих ключей).`;
-                        jsonForPrompt = missingKeysData;
-                        promptPreamble = "Ваша задача — перевести *значения* **следующего JSON-объекта (только недостающие ключи)** для дополнения существующего перевода.";
+                        missingTranslationsGlobal[modId] = missing;
+                        addFileStatus(file.name, modId, `Нужен перевод: ${missingCount} строк`, 'warn');
                     } else {
-                        ruStatusMessage.textContent += ' (Перевод актуален, все ключи совпадают).';
-                        jsonForPrompt = {};
-                        promptPreamble = "Перевод не требуется, все ключи совпадают.";
+                        addFileStatus(file.name, modId, `Перевод полный`, 'ok');
                     }
+                    validFilesCount++;
                 } else {
-                    ruStatusMessage.textContent = 'ru_ru.json не найден. Требуется полный перевод.';
-                    originalRuJsonString = null;
+                    addFileStatus(file.name, '???', 'Не найден языковой файл (en_us.json)', 'err');
                 }
-            
-            } else {
-                // --- ЛОГИКА ДЛЯ ОДИНОЧНОГО .JSON ---
-                processingMode = 'json';
-                modIdentifier = fileName.replace(/\.json$/i, '');
-                
-                let enUsJsonContent = await file.text();
-                const cleanedJsonContent = enUsJsonContent.replace(/\u00A0/g, ' ');
-                parsedEnJson = JSON.parse(cleanedJsonContent); 
-                
-                jsonForPrompt = parsedEnJson;
-                promptPreamble = "Ваша задача — перевести *значения* следующего JSON-объекта с английского на русский язык.";
-                ruStatusMessage.textContent = 'Загружен одиночный .json. Требуется полный перевод.';
-                originalRuJsonString = null; 
+
+            } catch (e) {
+                console.error(e);
+                addFileStatus(file.name, 'ERROR', e.message, 'err');
             }
-
-            generatePromptAndChunks(jsonForPrompt, promptPreamble);
-
-        } catch (error) {
-            handleError(error);
         }
-    }
 
-    // --- Вспомогательная функция: Генерация промпта и чанков ---
-    function generatePromptAndChunks(jsonForPrompt, promptPreamble) {
-        const allKeys = Object.keys(jsonForPrompt);
-        promptChunks = []; 
-        
-        if (allKeys.length === 0) {
-            promptOutput.value = promptPreamble;
-            promptChunks = [promptPreamble];
-            currentChunkIndex = 0;
-            chunkControls.classList.add('hidden');
-        
-        } else if (allKeys.length > MAX_KEYS_PER_CHUNK) {
-            const totalChunks = Math.ceil(allKeys.length / MAX_KEYS_PER_CHUNK);
-            
-            for (let i = 0; i < totalChunks; i++) {
-                const chunkKeys = allKeys.slice(i * MAX_KEYS_PER_CHUNK, (i + 1) * MAX_KEYS_PER_CHUNK);
-                const chunkJson = {};
-                chunkKeys.forEach(key => {
-                    chunkJson[key] = jsonForPrompt[key];
-                });
-                
-                const prettifiedChunkJson = JSON.stringify(chunkJson, null, 2);
-                const chunkPrompt = `${promptPreamble}
-- **Это ЧАСТЬ ${i + 1} из ${totalChunks}**.
-- **НЕ** переводите ключи JSON.
-- **НЕ** изменяйте структуру JSON-объекта.
-- **НЕ** изменяйте специальные коды форматирования, такие как "§d", "§5" и т.п. Это коды цвета и форматирования Minecraft, и они должны быть сохранены в точности.
-- Ответьте **ТОЛЬКО** переведенным JSON-объектом, убедившись, что это единый, валидный блок кода JSON. Не включайте никаких пояснительных текстов до или после JSON.
-
-Исходный английский JSON для перевода (Часть ${i + 1}/${totalChunks}):
-${prettifiedChunkJson}`;
-                promptChunks.push(chunkPrompt);
-            }
-            
-            currentChunkIndex = 0;
-            updateChunkView();
-            chunkControls.classList.remove('hidden');
-            
+        if (validFilesCount > 0) {
+            generatePrompt(missingTranslationsGlobal);
+            processArea.classList.add('show');
         } else {
-            const prettifiedJson = JSON.stringify(jsonForPrompt, null, 2);
-            const prompt = `${promptPreamble}
-- **НЕ** переводите ключи JSON.
-- **НЕ** изменяйте структуру JSON-объекта.
-- **НЕ** изменяйте специальные коды форматирования, такие как "§d", "§5" и т.п. Это коды цвета и форматирования Minecraft, и они должны быть сохранены в точности.
-- Ответьте **ТОЛЬКО** переведенным JSON-объектом, убедившись, что это единый, валидный блок кода JSON. Не включайте никаких пояснительных текстов до или после JSON.
-
-Исходный английский JSON для перевода:
-${prettifiedJson}`;
-            
-            promptOutput.value = prompt;
-            promptChunks = [prompt];
-            currentChunkIndex = 0;
-            chunkControls.classList.add('hidden');
+            statusMessage.innerText = "Не удалось найти подходящие файлы.";
         }
+    }
+
+    // Парсинг JAR файла
+    async function processJar(file) {
+        const zip = new JSZip();
+        await zip.loadAsync(file);
         
-        processArea.classList.add('show');
-    }
+        let modId = null;
+        let enPath = null;
+        let ruPath = null;
 
-    function handleError(error) {
-        console.error('Error processing file:', error);
-        let errorMessage = `Ошибка: ${error.message}`;
-        if (error instanceof SyntaxError) {
-            errorMessage = 'Ошибка: Загруженный файл содержит ошибку JSON. (Проверьте на www.jsonlint.com)';
-        }
-        ruStatusMessage.textContent = errorMessage;
-        processArea.classList.add('show'); 
-        provideVisualFeedback(dropZone, false, 'Ошибка при обработке файла'); 
-    }
-    
-    // --- Функции для управления "частями" ---
-    function updateChunkView() {
-        if (promptChunks.length === 0) return;
-        promptOutput.value = promptChunks[currentChunkIndex];
-        chunkStatus.textContent = `Часть ${currentChunkIndex + 1}/${promptChunks.length}`;
-        prevChunkBtn.disabled = (currentChunkIndex === 0);
-        nextChunkBtn.disabled = (currentChunkIndex === promptChunks.length - 1);
-    }
-    
-    prevChunkBtn.addEventListener('click', () => {
-        if (currentChunkIndex > 0) {
-            currentChunkIndex--;
-            updateChunkView();
-        }
-    });
-    
-    nextChunkBtn.addEventListener('click', () => {
-        if (currentChunkIndex < promptChunks.length - 1) {
-            currentChunkIndex++;
-            updateChunkView();
-        }
-    });
-
-    // --- Clipboard ---
-    copyPromptBtn.addEventListener('click', async () => {
-        if (promptOutput.value) {
-            try {
-                await navigator.clipboard.writeText(promptOutput.value);
-                provideVisualFeedback(copyPromptBtn, true, 'Промпт скопирован в буфер обмена!'); 
-            } catch (err) {
-                console.error('Failed to copy: ', err);
-                promptOutput.select();
-                provideVisualFeedback(copyPromptBtn, false, 'Промпт выделен. Нажмите Ctrl+C (Cmd+C), чтобы скопировать.'); 
+        // Ищем en_us.json и определяем ModID из пути
+        // Путь обычно: assets/<modid>/lang/en_us.json
+        for (const path in zip.files) {
+            if (path.match(/assets\/([^\/]+)\/lang\/en_us\.json$/i)) {
+                const parts = path.split('/');
+                modId = parts[1];
+                enPath = path;
+                // Проверяем, есть ли уже русский
+                const potentialRu = path.replace('en_us.json', 'ru_ru.json');
+                if (zip.files[potentialRu]) ruPath = potentialRu;
+                break;
             }
-        } else {
-             provideVisualFeedback(copyPromptBtn, false, 'Нечего копировать.'); 
         }
-    });
 
-    // --- ZIP Generation ---
-    generateBtn.addEventListener('click', async () => {
-        const translatedJsonString = translatedInput.value.trim();
-        if (!translatedJsonString) {
-            provideVisualFeedback(generateBtn, false, 'Ошибка: Пожалуйста, вставьте переведенный JSON.'); 
+        if (!modId || !enPath) return null;
+
+        const enText = await zip.file(enPath).async('string');
+        const enJson = JSON.parse(enText.replace(/^\uFEFF/, '').replace(/\u00A0/g, ' ')); // Чистим мусор
+        
+        let ruJson = null;
+        if (ruPath) {
+            const ruText = await zip.file(ruPath).async('string');
+            ruJson = JSON.parse(ruText.replace(/^\uFEFF/, '').replace(/\u00A0/g, ' '));
+        }
+
+        // Вычисляем, чего не хватает (Delta)
+        const missing = {};
+        for (const key in enJson) {
+            if (!ruJson || !ruJson[key]) {
+                missing[key] = enJson[key];
+            }
+        }
+
+        return { modId, enJson, ruJson, missing };
+    }
+
+    function addFileStatus(name, modId, status, type) {
+        const div = document.createElement('div');
+        div.className = 'file-item';
+        div.innerHTML = `
+            <div>${name} <span class="mod-id">[${modId}]</span></div>
+            <div class="status-${type}">${status}</div>
+        `;
+        fileListEl.appendChild(div);
+    }
+
+    // --- Генерация Промпта ---
+
+    function generatePrompt(missingGlobal) {
+        const modIds = Object.keys(missingGlobal);
+        if (modIds.length === 0) {
+            promptOutput.value = "Все загруженные моды уже полностью переведены! Вы можете нажать 'Скачать', чтобы получить пак с существующими переводами.";
             return;
         }
 
-        try {
-            let newTranslations;
+        promptChunks = [];
+        let currentChunkObj = {};
+        let currentSize = 0;
 
-            // --- Логика парсинга с учетом "частей" ---
-            if (promptChunks.length > 1) {
-                const jsonObjects = [];
-                // Регулярное выражение для поиска JSON объектов, включая вложенные (простая рекурсия не поддерживается, но это пытается найти внешние фигурные скобки)
-                const regex = /({(?:[^{}]|{(?:[^{}]|{[^{}]*})*})*})/g; 
-                let match;
+        for (const modId of modIds) {
+            const modKeys = missingGlobal[modId];
+            // Добавляем этот мод в текущий кусок
+            currentChunkObj[modId] = modKeys;
+            
+            // Проверка размера
+            const jsonStr = JSON.stringify(currentChunkObj);
+            if (jsonStr.length > CHARS_PER_CHUNK) {
+                // Если превысили - убираем последний добавленный мод, сохраняем чанк, и начинаем новый
+                delete currentChunkObj[modId];
+                addPromptChunk(currentChunkObj);
                 
-                while ((match = regex.exec(translatedJsonString)) !== null) {
-                    try {
-                        jsonObjects.push(JSON.parse(match[0]));
-                    } catch (e) {
-                        console.warn('Пропуск невалидного JSON-блока при сшивке:', match[0], e);
-                    }
-                }
-                
-                if (jsonObjects.length === 0) {
-                    throw new SyntaxError("Не найдено валидных JSON-объектов. Убедитесь, что вы вставили все части.");
-                }
-                
-                // Объединяем все переведенные части в один объект
-                newTranslations = Object.assign({}, ...jsonObjects);
-
-            } else {
-                newTranslations = JSON.parse(translatedJsonString);
-            }
-
-            if (!modIdentifier) {
-                provideVisualFeedback(generateBtn, false, 'Ошибка: Имя мода не найдено. Пожалуйста, перезагрузите и выберите файл снова.'); 
-                return;
-            }
-
-            let finalJsonData;
-
-            // --- ЛОГИКА ОБЪЕДИНЕНИЯ ---
-            // Если был загружен ru_ru.json (в режиме JAR или Dual JSON), объединяем старые ключи с новыми переводами
-            if (originalRuJsonString) {
-                const originalRuData = JSON.parse(originalRuJsonString);
-                // Object.assign: сохраняет оригинальные ключи, а новые (переведенные) перезаписывают старые, если они были в исходном запросе на перевод.
-                finalJsonData = Object.assign(originalRuData, newTranslations);
-            } else {
-                // Если originalRuJsonString == null (полный перевод), используем только новые переводы
-                finalJsonData = newTranslations;
-            }
-
-            const finalJsonString = JSON.stringify(finalJsonData, null, 2);
-            const zip = new JSZip();
-            const langCode = 'ru_ru';
-            
-            // --- Динамический путь в ZIP ---
-            let internalPath;
-            if (processingMode === 'json' || processingMode === 'dual-json') {
-                // Для одиночного и двойного JSON сохраняем в корень ZIP (проще для ручной установки)
-                internalPath = `${langCode}.json`; 
-            } else {
-                // Путь для .jar
-                internalPath = `assets/${modIdentifier}/lang/${langCode}.json`; 
-            }
-            
-            zip.file(internalPath, finalJsonString);
-            
-            const zipBlob = await zip.generateAsync({type: 'blob'});
-            const url = URL.createObjectURL(zipBlob);
-            
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${modIdentifier}_${langCode}_translation.zip`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
-            provideVisualFeedback(generateBtn, true, 'ZIP-файл перевода успешно загружен!');
-
-        } catch (error) {
-            if (error instanceof SyntaxError) {
-                provideVisualFeedback(generateBtn, false, `Ошибка: Вставленное содержимое не является валидным JSON. ${error.message}`); 
-            } else {
-                console.error('Error generating ZIP:', error);
-                provideVisualFeedback(generateBtn, false, `Ошибка: Произошла ошибка при создании ZIP-файла. ${error.message}`); 
+                currentChunkObj = {};
+                currentChunkObj[modId] = modKeys;
             }
         }
+        
+        if (Object.keys(currentChunkObj).length > 0) {
+            addPromptChunk(currentChunkObj);
+        }
+
+        // Обновляем UI
+        currentChunkIndex = 0;
+        updateChunkDisplay();
+        
+        if (promptChunks.length > 1) {
+            chunkControls.classList.remove('hidden');
+        } else {
+            chunkControls.classList.add('hidden');
+        }
+    }
+
+    function addPromptChunk(obj) {
+        const jsonStr = JSON.stringify(obj, null, 2);
+        const prompt = `Пожалуйста, переведи значения в этом JSON на русский для Minecraft.
+СТРУКТУРА: Ключи верхнего уровня ("${Object.keys(obj).join('", "')}") — это ID модов, их НЕ переводи. Внутри — ключи и текст.
+ПРАВИЛА:
+1. Переводи только значения (текст справа).
+2. НЕ меняй спец. символы (%s, %d, §a).
+3. Верни только валидный JSON.
+
+${jsonStr}`;
+        promptChunks.push(prompt);
+    }
+
+    function updateChunkDisplay() {
+        if (!promptChunks.length) return;
+        promptOutput.value = promptChunks[currentChunkIndex];
+        chunkStatus.innerText = `${currentChunkIndex + 1} / ${promptChunks.length}`;
+        prevChunkBtn.disabled = currentChunkIndex === 0;
+        nextChunkBtn.disabled = currentChunkIndex === promptChunks.length - 1;
+    }
+
+    prevChunkBtn.addEventListener('click', () => { currentChunkIndex--; updateChunkDisplay(); });
+    nextChunkBtn.addEventListener('click', () => { currentChunkIndex++; updateChunkDisplay(); });
+
+    copyPromptBtn.addEventListener('click', () => {
+        if (!promptOutput.value) return;
+        navigator.clipboard.writeText(promptOutput.value)
+            .then(() => showFeedback(copyPromptBtn, true, 'Скопировано!'))
+            .catch(() => showFeedback(copyPromptBtn, false));
+    });
+
+    // --- Сборка Ресурс-пака ---
+
+    generateBtn.addEventListener('click', async () => {
+        const inputStr = translatedInput.value.trim();
+        let translatedData = {};
+
+        // Пытаемся распарсить ввод. Пользователь мог вставить несколько JSON подряд.
+        // Используем простой regex для поиска объектов {...} верхнего уровня
+        if (inputStr) {
+            try {
+                // 1. Пробуем распарсить как единый JSON
+                translatedData = JSON.parse(inputStr);
+            } catch (e) {
+                // 2. Если ошибка, пробуем найти отдельные блоки JSON
+                const regex = /({[\s\S]*?})(?=\s*{|\s*$)/g;
+                let match;
+                while ((match = regex.exec(inputStr)) !== null) {
+                    try {
+                        const part = JSON.parse(match[0]);
+                        translatedData = { ...translatedData, ...part };
+                    } catch (err) { console.warn("Skip invalid block"); }
+                }
+            }
+        }
+
+        // Создаем ZIP
+        const zip = new JSZip();
+        
+        // 1. Файл описания пака (pack.mcmeta)
+        zip.file("pack.mcmeta", JSON.stringify({
+            "pack": {
+                "pack_format": 15,
+                "description": "Generated by MMT Translation Tool"
+            }
+        }, null, 2));
+
+        let filesAdded = 0;
+
+        // 2. Собираем файлы для каждого мода
+        for (const modId in modsData) {
+            // Берем старый перевод (если был в jar)
+            let finalRu = modsData[modId].originalRu || {};
+            
+            // Если нейросеть прислала перевод для этого мода, накладываем сверху
+            if (translatedData[modId]) {
+                Object.assign(finalRu, translatedData[modId]);
+            }
+
+            // Добавляем в архив: assets/<modid>/lang/ru_ru.json
+            if (Object.keys(finalRu).length > 0) {
+                zip.file(`assets/${modId}/lang/ru_ru.json`, JSON.stringify(finalRu, null, 2));
+                filesAdded++;
+            }
+        }
+
+        if (filesAdded === 0) {
+            showFeedback(generateBtn, false, 'Нет данных для сохранения');
+            return;
+        }
+
+        // Скачиваем
+        const content = await zip.generateAsync({type:"blob"});
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(content);
+        link.download = "MMT_Translations_Pack.zip";
+        link.click();
+        
+        showFeedback(generateBtn, true, 'Скачано!');
     });
 });
