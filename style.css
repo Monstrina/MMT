@@ -1,5 +1,4 @@
---- START OF FILE style.css ---
-/* Основные стили */
+/* style.css */
 :root {
     --primary-color: #4CAF50;
     --secondary-color: #2E7D32;
@@ -10,744 +9,139 @@
     --dragover-color: #2d2d2d;
     --btn-success-color: #4CAF50;
     --btn-error-color: #f44336;
-    --feedback-duration: 500ms;
     --transition-duration: 0.3s;
 }
 
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
     font-family: 'Courier New', Courier, monospace;
     background-color: var(--background-color);
     color: var(--text-color);
-    padding: 10px;
+    padding: 20px;
     min-height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
-    background-image: 
-        linear-gradient(var(--border-color) 1px, transparent 1px),
-        linear-gradient(90deg, var(--border-color) 1px, transparent 1px);
-    background-size: 20px 20px;
-    background-position: 0 0, 0 0;
 }
 
 .container {
-    max-width: 900px; /* Немного расширил для удобства */
+    max-width: 900px;
     width: 100%;
-    padding: 20px;
     background-color: var(--surface-color);
     border-radius: 15px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-    position: relative;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+    overflow: hidden;
 }
 
-/* Макет окна macOS */
+/* Заголовок окна */
 .window-header {
     display: flex;
     align-items: center;
-    padding: 8px 15px;
-    background-color: var(--surface-color);
-    border-top-left-radius: 15px;
-    border-top-right-radius: 15px;
+    padding: 10px 15px;
+    background-color: #252525;
     border-bottom: 1px solid var(--border-color);
 }
 
-.window-controls {
-    display: flex;
-    gap: 5px;
-    margin-right: 10px;
-}
-
-.window-control {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-}
-
+.window-controls { display: flex; gap: 6px; margin-right: 15px; }
+.window-control { width: 12px; height: 12px; border-radius: 50%; }
 .control-red { background-color: #ff5f56; }
 .control-yellow { background-color: #ffbd2e; }
 .control-green { background-color: #27c93f; }
 
-.window-title {
-    font-size: 1.3rem;
-    font-weight: bold;
-    color: var(--text-color);
-    letter-spacing: 1px;
-}
+.window-title { font-weight: bold; font-size: 1.1rem; }
 
-/* Основной контент */
-.content {
-    padding: 15px 0;
-}
+/* Контент */
+.content { padding: 20px; }
 
+/* Зона загрузки */
 .drop-zone {
     border: 2px dashed var(--border-color);
     border-radius: 8px;
-    padding: 30px 20px;
+    padding: 40px;
     text-align: center;
     cursor: pointer;
-    transition: all 0.3s ease;
-    background-color: rgba(30, 30, 30, 0.7);
-    margin: 15px 0;
+    transition: 0.3s;
+    background: rgba(255,255,255,0.05);
+    margin-bottom: 20px;
 }
-
-.drop-zone.dragover {
+.drop-zone:hover, .drop-zone.dragover {
     border-color: var(--primary-color);
-    background-color: var(--dragover-color);
+    background: rgba(76, 175, 80, 0.1);
 }
 
-.drop-zone p {
-    font-size: 1rem;
-    margin: 0;
-    color: var(--text-color);
-    letter-spacing: 0.5px;
-    line-height: 1.5;
-}
-
-/* Список загруженных файлов */
+/* Список файлов */
 .file-list {
-    margin: 10px 0;
+    margin-bottom: 20px;
     max-height: 150px;
     overflow-y: auto;
-    font-size: 0.85rem;
     border: 1px solid var(--border-color);
     border-radius: 6px;
+    background: #111;
     padding: 5px;
-    display: none; /* Скрыт по умолчанию */
 }
-
-.file-list.show {
-    display: block;
-}
-
+.file-list.hidden { display: none; }
 .file-item {
-    padding: 3px 5px;
+    padding: 5px 10px;
     border-bottom: 1px solid #333;
     display: flex;
     justify-content: space-between;
+    font-size: 0.9em;
 }
 .file-item:last-child { border-bottom: none; }
-.file-item span.mod-id { color: var(--primary-color); font-weight: bold; }
-.file-item span.status { color: #888; }
+.mod-id { color: #888; font-size: 0.8em; margin-left: 10px; }
+.status-ok { color: var(--primary-color); }
+.status-warn { color: #ffbd2e; }
+.status-err { color: var(--btn-error-color); }
 
+/* Область процесса */
 .process-area {
-    margin-top: 15px;
     opacity: 0;
-    transform: scale(0.95);
-    transition: opacity var(--transition-duration) ease, 
-                transform var(--transition-duration) ease,
-                max-height var(--transition-duration) ease;
     max-height: 0;
     overflow: hidden;
+    transition: all 0.5s ease;
 }
+.process-area.show { opacity: 1; max-height: 2000px; }
 
-.process-area.show {
-    opacity: 1;
-    transform: scale(1);
-    max-height: 2000px; /* Увеличил, так как контента может быть много */
-}
-
-.hidden {
-    display: none;
-}
-
-.section {
-    margin: 15px 0;
-}
-
-.section h2 {
-    margin-bottom: 8px;
-    color: var(--text-color);
-    font-size: 1.1rem;
-    letter-spacing: 0.5px;
-}
+.section h2 { margin-bottom: 10px; font-size: 1rem; color: #fff; }
 
 textarea {
     width: 100%;
-    height: 180px; /* Немного увеличил */
-    padding: 10px;
+    height: 150px;
+    background: #111;
+    color: var(--text-color);
     border: 1px solid var(--border-color);
     border-radius: 6px;
-    background-color: var(--surface-color);
-    color: var(--text-color);
-    font-family: 'Courier New', Courier, monospace;
+    padding: 10px;
     resize: vertical;
-    margin-bottom: 8px;
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+    font-family: inherit;
+    margin-bottom: 10px;
 }
-
-textarea:focus {
-    outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 1px rgba(76, 175, 80, 0.2);
-}
-
-.button-group {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    margin-bottom: 8px;
-}
+textarea:focus { outline: 1px solid var(--primary-color); }
 
 button {
-    background-color: var(--secondary-color);
-    color: white;
+    background: var(--secondary-color);
+    color: #fff;
     border: none;
     padding: 10px 20px;
-    border-radius: 6px;
+    border-radius: 4px;
     cursor: pointer;
-    font-family: 'Courier New', Courier, monospace;
+    font-family: inherit;
     font-weight: bold;
-    transition: all 0.3s ease;
-    letter-spacing: 0.5px;
-    margin: 0 8px 8px 0;
-    min-width: 140px;
+    margin-right: 10px;
+    transition: 0.2s;
 }
-
-button:hover {
-    background-color: var(--primary-color);
-    transform: translateY(-1px);
-}
-
-button:disabled {
-    background-color: var(--border-color);
-    color: #777;
-    cursor: not-allowed;
-    transform: none;
-}
-
-.status-message {
-    color: var(--btn-error-color);
-    font-size: 0.9rem;
-    font-weight: bold;
-    margin-left: 5px;
-    margin-bottom: 8px;
-    display: block;
-    width: 100%;
-}
-
+button:hover { background: var(--primary-color); }
 .btn-success { background-color: var(--btn-success-color) !important; }
 .btn-error { background-color: var(--btn-error-color) !important; }
 
-/* Chunk controls */
-.chunk-controls {
-    display: flex;
-    align-items: center;
-    margin: 0 10px 8px 0;
-}
+.chunk-controls { display: inline-flex; align-items: center; gap: 5px; }
 .chunk-controls.hidden { display: none; }
-.chunk-controls span { margin: 0 5px; font-weight: bold; }
-.chunk-controls button {
-    padding: 8px 12px;
-    min-width: auto;
-    margin: 0 3px;
-}
+.chunk-controls button { padding: 5px 10px; min-width: auto; margin: 0; }
 
-/* Scrollbar styling for Webkit */
+.status-message { color: #ffbd2e; font-size: 0.9em; display: block; margin-top: 5px; }
+
+/* Скроллбар */
 ::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-track { background: var(--background-color); }
-::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #555; }
-
-/* Адаптивность */
-@media (max-width: 768px) {
-    .container { padding: 10px; margin: 5px; }
-    .window-header { padding: 6px 10px; }
-    .window-title { font-size: 1.1rem; }
-    .drop-zone { padding: 20px; }
-    .button-group { flex-direction: column; align-items: stretch; }
-    button { width: 100%; margin-right: 0; }
-    .chunk-controls { justify-content: center; width: 100%; }
-}
---- START OF FILE index.html ---
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MMT: Minecraft Resource Pack Generator</title>
-    <link rel="icon" href="favicon.ico" type="image/x-icon">
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <div class="container">
-        <div class="window-header">
-            <div class="window-controls">
-                <div class="window-control control-red"></div>
-                <div class="window-control control-yellow"></div>
-                <div class="window-control control-green"></div>
-            </div>
-            <div class="window-title">MMT: Resource Pack Generator</div>
-        </div>
-        <div class="content">
-            <div id="drop-zone" class="drop-zone">
-                <p><strong>Перетащите сюда .jar файлы модов</strong><br>
-                (можно выделить сразу много файлов)<br>
-                <span style="font-size: 0.8em; color: #888;">Также поддерживает .json файлы по старой схеме</span></p>
-                <input type="file" id="file-input" accept=".jar,.json" multiple style="display: none;">
-            </div>
-
-            <!-- Список обнаруженных модов -->
-            <div id="file-list" class="file-list"></div>
-
-            <div id="process-area" class="process-area">
-                <div class="section">
-                    <h2>1. Промпт для ИИ (содержит ключи всех модов):</h2>
-                    <textarea id="prompt-output" readonly></textarea>
-                    <div class="button-group">
-                        <button id="copy-prompt-btn">Скопировать промпт</button>
-                        
-                        <div id="chunk-controls" class="chunk-controls hidden">
-                            <button id="prev-chunk-btn">&lt;</button>
-                            <span id="chunk-status">1/1</span>
-                            <button id="next-chunk-btn">&gt;</button>
-                        </div>
-                    </div>
-                    <span id="ru-status-message" class="status-message"></span>
-                </div>
-                <div class="section">
-                    <h2>2. Вставьте ответ от ИИ (JSON):</h2>
-                    <textarea id="translated-input" placeholder='Вставьте полученный JSON код сюда. Если ИИ выдал несколько блоков кода, вставьте их все.'></textarea>
-                    <button id="generate-btn">Скачать готовый Resource Pack (.zip)</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="script.js"></script>
-</body>
-</html>
---- START OF FILE script.js ---
-document.addEventListener('DOMContentLoaded', () => {
-    // --- UI Elements ---
-    const fileInput = document.getElementById('file-input');
-    const dropZone = document.getElementById('drop-zone');
-    const processArea = document.getElementById('process-area');
-    const promptOutput = document.getElementById('prompt-output');
-    const copyPromptBtn = document.getElementById('copy-prompt-btn');
-    const translatedInput = document.getElementById('translated-input');
-    const generateBtn = document.getElementById('generate-btn');
-    const ruStatusMessage = document.getElementById('ru-status-message');
-    const fileListEl = document.getElementById('file-list');
-    
-    // --- Chunk Controls ---
-    const chunkControls = document.getElementById('chunk-controls');
-    const prevChunkBtn = document.getElementById('prev-chunk-btn');
-    const nextChunkBtn = document.getElementById('next-chunk-btn');
-    const chunkStatus = document.getElementById('chunk-status');
-
-    // --- State ---
-    // Структура: { "modid": { en: Object, ru: Object, originalRuString: String } }
-    let modsData = {}; 
-    let promptChunks = [];
-    let currentChunkIndex = 0;
-    
-    // Максимум символов в одном чанке промпта (чтобы не превысить лимит токенов)
-    // 15000 символов ~ 3-4k токенов, безопасно для большинства моделей
-    const CHARS_PER_CHUNK = 15000; 
-
-    // --- Helpers ---
-    function provideVisualFeedback(buttonElement, isSuccess = true, message = null) {
-        buttonElement.classList.remove('btn-success', 'btn-error');
-        const feedbackClass = isSuccess ? 'btn-success' : 'btn-error';
-        buttonElement.classList.add(feedbackClass);
-        if (message && !isSuccess) {
-            ruStatusMessage.textContent = message;
-        } else if (message) {
-            console.log(message);
-        }
-        setTimeout(() => buttonElement.classList.remove(feedbackClass), 500);
-    }
-
-    function resetUI() {
-        ruStatusMessage.textContent = '';
-        translatedInput.value = '';
-        promptOutput.value = '';
-        modsData = {};
-        promptChunks = [];
-        currentChunkIndex = 0;
-        chunkControls.classList.add('hidden');
-        processArea.classList.remove('show');
-        fileListEl.innerHTML = '';
-        fileListEl.classList.remove('show');
-    }
-
-    // --- Drag & Drop ---
-    dropZone.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', (e) => { if (e.target.files.length > 0) handleFiles(e.target.files); });
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => dropZone.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); }));
-    ['dragenter', 'dragover'].forEach(evt => dropZone.addEventListener(evt, () => dropZone.classList.add('dragover')));
-    ['dragleave', 'drop'].forEach(evt => dropZone.addEventListener(evt, () => dropZone.classList.remove('dragover')));
-    dropZone.addEventListener('drop', (e) => { if (e.dataTransfer.files.length > 0) handleFiles(e.dataTransfer.files); });
-
-    // --- Main Processing Logic ---
-    async function handleFiles(files) {
-        resetUI();
-        
-        let processedCount = 0;
-        const totalFiles = files.length;
-        const missingTranslationsGlobal = {}; // { "modid": { "key": "value" } }
-
-        // Показываем список файлов
-        fileListEl.classList.add('show');
-
-        // Обработка каждого файла
-        for (const file of files) {
-            const fileName = file.name.toLowerCase();
-            let result = null;
-
-            try {
-                if (fileName.endsWith('.jar')) {
-                    result = await processJarFile(file);
-                } else if (fileName.endsWith('.json') && totalFiles <= 2) {
-                    // Старая логика для JSON (только если их мало, иначе считаем мусором)
-                    // Для упрощения массового режима, JSON обрабатываем только если это 1-2 файла
-                    // Если пользователь кинул 50 JAR и 1 JSON, JSON игнорируем или обрабатываем отдельно?
-                    // Реализуем простую поддержку одиночного JSON для обратной совместимости
-                    if (totalFiles === 1) result = await processSingleJson(file);
-                    else if (totalFiles === 2) {
-                        // Режим сравнения двух JSON файлов реализуем через processDualJson
-                        // Но здесь сложнее в цикле. Для массового режима focus on JARs.
-                        // Если 2 JSON - вызываем спец функцию и выходим из цикла
-                        await handleDualJsonFiles(files);
-                        return; 
-                    }
-                }
-
-                if (result) {
-                    const { modId, enJson, ruJson, missingKeys } = result;
-                    
-                    // Сохраняем данные для сборки
-                    modsData[modId] = {
-                        en: enJson,
-                        ru: ruJson, // Может быть null, если перевода не было
-                        originalRu: ruJson ? JSON.parse(JSON.stringify(ruJson)) : {} // Копия
-                    };
-
-                    // Добавляем в глобальный список на перевод, если есть что переводить
-                    if (Object.keys(missingKeys).length > 0) {
-                        missingTranslationsGlobal[modId] = missingKeys;
-                    }
-
-                    addFileToList(fileName, modId, Object.keys(missingKeys).length, true);
-                } else {
-                    if (fileName.endsWith('.jar')) addFileToList(fileName, '???', 0, false, 'No lang file');
-                }
-
-            } catch (err) {
-                console.error(err);
-                addFileToList(fileName, 'Error', 0, false, err.message);
-            }
-            processedCount++;
-        }
-
-        if (Object.keys(modsData).length === 0) {
-            ruStatusMessage.textContent = "Не найдено валидных модов или языковых файлов.";
-            processArea.classList.add('show');
-            return;
-        }
-
-        generatePrompt(missingTranslationsGlobal);
-    }
-
-    // --- JAR Processor ---
-    async function processJarFile(file) {
-        const arrayBuffer = await file.arrayBuffer();
-        const zip = new JSZip();
-        await zip.loadAsync(arrayBuffer);
-
-        let modId = null;
-        let enPath = null;
-        let ruPath = null;
-
-        // Поиск папки assets/MODID/lang/en_us.json
-        // RegExp: assets/([^/]+)/lang/en_us.json
-        for (const path in zip.files) {
-            // Ищем английский файл
-            if (path.match(/^assets\/[^\/]+\/lang\/en_us\.json$/i)) {
-                const parts = path.split('/');
-                modId = parts[1]; // assets / modid / lang / file
-                enPath = path;
-                // Пытаемся угадать путь к русскому файлу
-                const possibleRu = path.replace('en_us.json', 'ru_ru.json');
-                if (zip.files[possibleRu]) {
-                    ruPath = possibleRu;
-                }
-                break; // Берем первый попавшийся modid (обычно в jar один мод)
-            }
-        }
-
-        if (!modId || !enPath) return null;
-
-        const enStr = await zip.file(enPath).async('string');
-        const enJson = parseJsonSafe(enStr);
-        
-        let ruJson = null;
-        if (ruPath) {
-            const ruStr = await zip.file(ruPath).async('string');
-            ruJson = parseJsonSafe(ruStr);
-        }
-
-        // Вычисляем дельту
-        const missingKeys = {};
-        for (const key in enJson) {
-            if (!ruJson || !ruJson.hasOwnProperty(key)) {
-                missingKeys[key] = enJson[key];
-            }
-        }
-
-        return { modId, enJson, ruJson, missingKeys };
-    }
-
-    // --- Single JSON Processor (Legacy) ---
-    async function processSingleJson(file) {
-        const str = await file.text();
-        const json = parseJsonSafe(str);
-        const modId = file.name.replace('.json', '');
-        return { modId, enJson: json, ruJson: null, missingKeys: json };
-    }
-
-    // --- UI Helper: File List ---
-    function addFileToList(fileName, modId, missingCount, success, errorMsg = '') {
-        const div = document.createElement('div');
-        div.className = 'file-item';
-        const statusColor = success ? (missingCount > 0 ? '#ffbd2e' : '#27c93f') : '#ff5f56';
-        const statusText = success ? (missingCount > 0 ? `-${missingCount} строк` : 'ОК') : errorMsg;
-        
-        div.innerHTML = `
-            <div>${fileName} <span class="mod-id">[${modId}]</span></div>
-            <div style="color:${statusColor}">${statusText}</div>
-        `;
-        fileListEl.appendChild(div);
-    }
-
-    // --- Prompt Generation with Chunking ---
-    function generatePrompt(missingData) {
-        const modIds = Object.keys(missingData);
-        if (modIds.length === 0) {
-            promptOutput.value = "Все загруженные моды уже полностью переведены! (en_us совпадает с ru_ru). Вы можете нажать кнопку 'Скачать', чтобы получить архив с существующими переводами, или загрузить другие файлы.";
-            // Создаем фиктивный чанк, чтобы логика не ломалась
-            modsData['info'] = { originalRu: {} }; 
-            return;
-        }
-
-        // Стратегия: Создаем JSON вида { "modid": { ...keys }, "modid2": { ...keys } }
-        // Если он слишком большой, бьем на несколько объектов.
-        
-        promptChunks = [];
-        let currentChunkObj = {};
-        let currentCharCount = 0;
-
-        for (const modId of modIds) {
-            const modKeys = missingData[modId];
-            const modKeysStr = JSON.stringify(modKeys);
-            
-            // Если один мод огромный (> лимита), придется его дробить (редкий кейс, но учтем)
-            // Упрощение: если один мод влезает в чанк, добавляем. Если нет — новый чанк.
-            
-            if (currentCharCount + modKeysStr.length > CHARS_PER_CHUNK && Object.keys(currentChunkObj).length > 0) {
-                // Закрываем текущий чанк
-                addPromptChunk(currentChunkObj);
-                currentChunkObj = {};
-                currentCharCount = 0;
-            }
-            
-            currentChunkObj[modId] = modKeys;
-            currentCharCount += modKeysStr.length;
-        }
-        
-        // Добавляем последний остаток
-        if (Object.keys(currentChunkObj).length > 0) {
-            addPromptChunk(currentChunkObj);
-        }
-
-        currentChunkIndex = 0;
-        updateChunkView();
-        
-        if (promptChunks.length > 1) {
-            chunkControls.classList.remove('hidden');
-        }
-        
-        ruStatusMessage.textContent = `Сформировано ${promptChunks.length} частей промпта. Переведите их по очереди.`;
-        processArea.classList.add('show');
-    }
-
-    function addPromptChunk(jsonObj) {
-        const jsonStr = JSON.stringify(jsonObj, null, 2);
-        const prompt = `Ваша задача — перевести значения в предоставленном JSON с английского на русский язык для Minecraft модов.
-СТРУКТУРА JSON: Ключи верхнего уровня — это ID модов (например, "ironchests"). Их НЕ трогать. Внутри них находятся пары "ключ": "текст".
-ИНСТРУКЦИЯ:
-1. Переводите ТОЛЬКО значения внутри вложенных объектов.
-2. НЕ переводите ключи (ни ID модов, ни ключи строк).
-3. Сохраняйте коды форматирования (например, §a, %s, %d) без изменений.
-4. Верните ТОЛЬКО валидный JSON объект. Без "```json" оберток.
-
-JSON для перевода:
-${jsonStr}`;
-        promptChunks.push(prompt);
-    }
-
-    function updateChunkView() {
-        if (promptChunks.length === 0) return;
-        promptOutput.value = promptChunks[currentChunkIndex];
-        chunkStatus.textContent = `${currentChunkIndex + 1}/${promptChunks.length}`;
-        prevChunkBtn.disabled = (currentChunkIndex === 0);
-        nextChunkBtn.disabled = (currentChunkIndex === promptChunks.length - 1);
-    }
-
-    prevChunkBtn.addEventListener('click', () => { if (currentChunkIndex > 0) { currentChunkIndex--; updateChunkView(); } });
-    nextChunkBtn.addEventListener('click', () => { if (currentChunkIndex < promptChunks.length - 1) { currentChunkIndex++; updateChunkView(); } });
-
-    // --- Copy Prompt ---
-    copyPromptBtn.addEventListener('click', async () => {
-        if (!promptOutput.value) return;
-        try {
-            await navigator.clipboard.writeText(promptOutput.value);
-            provideVisualFeedback(copyPromptBtn, true, 'Скопировано!');
-        } catch (e) {
-            promptOutput.select();
-            provideVisualFeedback(copyPromptBtn, false, 'Ошибка копирования');
-        }
-    });
-
-    // --- Generate Resource Pack ---
-    generateBtn.addEventListener('click', async () => {
-        const inputStr = translatedInput.value.trim();
-        
-        // Попытка собрать все JSON объекты из ввода (если пользователь вставил несколько ответов подряд)
-        // Ищем внешние скобки { ... }
-        // Упрощенный парсинг: пытаемся распарсить все целиком, если не вышло — ищем паттерном
-        
-        let mergedTranslations = {};
-
-        try {
-            // 1. Попытка распарсить как один JSON
-            mergedTranslations = JSON.parse(inputStr);
-        } catch (e) {
-            // 2. Если не вышло (например, несколько блоков), используем RegExp для извлечения объектов
-            // Этот RegExp ищет сбалансированные фигурные скобки верхнего уровня (приблизительно)
-            // Но для надежности просто попробуем найти }{ и добавить запятую, обернув в массив?
-            // Надежнее: Искать блоки, начинающиеся с "modid": {
-            
-            // Простой regex для поиска top-level объектов в тексте, который может содержать мусор
-            // Предполагаем, что структура ответа: { "mod": {...} } { "mod2": {...} }
-            const regex = /({[\s\S]*?})(?=\s*{|\s*$)/g;
-            let match;
-            let successParts = 0;
-            
-            while ((match = regex.exec(inputStr)) !== null) {
-                try {
-                    const part = JSON.parse(match[0]);
-                    // Мержим
-                    mergedTranslations = { ...mergedTranslations, ...part };
-                    successParts++;
-                } catch (err) {
-                    console.warn("Skipped invalid JSON block", match[0]);
-                }
-            }
-
-            if (successParts === 0) {
-                provideVisualFeedback(generateBtn, false, 'Ошибка: Не удалось распознать JSON. Проверьте валидность.');
-                return;
-            }
-        }
-
-        try {
-            const zip = new JSZip();
-            
-            // 1. Добавляем pack.mcmeta (Обязательно для Ресурс-пака)
-            const mcmeta = {
-                "pack": {
-                    "pack_format": 15, // Версия для 1.20+, более старые версии часто принимают новые числа с варнингом, но работают
-                    "description": "Generated by MMT (Minecraft Mod Translator)"
-                }
-            };
-            zip.file("pack.mcmeta", JSON.stringify(mcmeta, null, 2));
-            
-            // 2. Добавляем иконку (опционально, создадим пустышку или пропустим)
-            // zip.file("pack.png", ...); 
-
-            let filesAdded = 0;
-
-            // 3. Проходимся по всем модам, которые мы загрузили изначально
-            for (const modId in modsData) {
-                const modInfo = modsData[modId];
-                
-                // Берем оригинальный русский (если был)
-                let finalRu = modInfo.originalRu || {};
-                
-                // Если для этого мода есть новые переводы, добавляем их
-                if (mergedTranslations[modId]) {
-                    // Object.assign перезаписывает старые ключи новыми
-                    finalRu = Object.assign(finalRu, mergedTranslations[modId]);
-                } else if (mergedTranslations[modId] === undefined && Object.keys(mergedTranslations).length > 0) {
-                    // Пользователь мог вставить только часть перевода.
-                    // Если перевода для этого мода нет во вводе, но он требовался — оставим как есть (частично переведенным или английским)
-                }
-
-                // Создаем файл в структуре ресурс-пака
-                // assets/<modid>/lang/ru_ru.json
-                const path = `assets/${modId}/lang/ru_ru.json`;
-                zip.file(path, JSON.stringify(finalRu, null, 2));
-                filesAdded++;
-            }
-
-            // Генерируем ZIP
-            const content = await zip.generateAsync({type: "blob"});
-            const url = URL.createObjectURL(content);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = "MMT_ResourcePack.zip";
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-            provideVisualFeedback(generateBtn, true, `Готово! Создан пак для ${filesAdded} модов.`);
-
-        } catch (err) {
-            console.error(err);
-            provideVisualFeedback(generateBtn, false, 'Ошибка при создании архива: ' + err.message);
-        }
-    });
-
-    // --- Utils ---
-    function parseJsonSafe(str) {
-        // Очистка от BOM и неразрывных пробелов
-        const clean = str.replace(/^\uFEFF/, '').replace(/\u00A0/g, ' ');
-        return JSON.parse(clean);
-    }
-    
-    // --- Legacy Dual JSON handler (Simplified) ---
-    async function handleDualJsonFiles(files) {
-         // Для совместимости, если пользователь кинул именно 2 JSON (en+ru)
-         // Мы просто сделаем вид, что это один "мод" с ID "custom"
-         try {
-            const t1 = await files[0].text();
-            const t2 = await files[1].text();
-            let en, ru;
-            if (files[0].name.includes('en_us')) { en = JSON.parse(t1); ru = JSON.parse(t2); }
-            else { en = JSON.parse(t2); ru = JSON.parse(t1); }
-            
-            modsData['custom_override'] = { en, ru, originalRu: ru };
-            
-            // Delta
-            const missing = {};
-            for(let k in en) if(!ru[k]) missing[k] = en[k];
-            
-            fileListEl.classList.add('show');
-            addFileToList("Dual JSON Mode", "custom", Object.keys(missing).length, true);
-            
-            generatePrompt({ 'custom_override': missing });
-            
-         } catch (e) {
-             ruStatusMessage.textContent = "Ошибка обработки пары JSON: " + e.message;
-             processArea.classList.add('show');
-         }
-    }
-});
---- END OF FILE script.js ---
+::-webkit-scrollbar-track { background: #111; }
+::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
